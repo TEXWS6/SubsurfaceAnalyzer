@@ -1,0 +1,96 @@
+/* SubsurfaceAnalyzer custom styles */
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #f5f6fa;
+}
+
+/* Track borders for log viewer panels */
+.border-end {
+    border-right: 1px solid #dee2e6 !important;
+}
+
+.border-dashed {
+    border: 2px dashed #adb5bd !important;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.border-dashed:hover {
+    border-color: #2c3e50 !important;
+}
+
+/* Sidebar scroll styling */
+.bg-light {
+    background-color: #f8f9fa !important;
+}
+
+/* DataTable styling enhancements */
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td {
+    border: 1px solid #eee;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner th {
+    border: 1px solid #dee2e6;
+}
+
+/* Plotly graph containers */
+.js-plotly-plot .plotly .modebar {
+    right: 10px !important;
+}
+
+/* Card styling */
+.card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border: 1px solid #e8e8e8;
+}
+
+.card-header {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+/* Accordion compact styling */
+.accordion-button {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.accordion-body {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+/* Input sizing */
+.form-control, .form-select {
+    font-size: 0.85rem;
+}
+
+.form-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-bottom: 0.15rem;
+}
+
+/* Navbar */
+.navbar-brand {
+    font-size: 1.15rem;
+    letter-spacing: 0.5px;
+}
+
+/* Upload zone */
+#las-upload {
+    margin-bottom: 1rem;
+}
+
+/* Net pay summary card */
+.card-body p {
+    margin-bottom: 0.3rem;
+}
+
+/* Checklist items */
+.form-check-inline {
+    margin-right: 0.75rem;
+    font-size: 0.85rem;
+}
