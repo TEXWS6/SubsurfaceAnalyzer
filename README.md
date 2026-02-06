@@ -45,6 +45,14 @@ A web-based subsurface geological analysis tool built with Dash and Plotly. Impo
 - Well coordinate editor with inline editing
 - Save/load map configurations
 
+### Production Data
+- **Time-series charts**: Oil/gas/water rate vs time with linear or log scale
+- **Cumulative production**: Running totals plotted over time
+- **Decline curve analysis**: Arps exponential and hyperbolic fitting (scipy curve_fit), EUR projection, configurable economic limit and forecast horizon
+- **Multi-well comparison**: Overlay production from multiple wells on the same chart
+- **Editable DataTable**: Add, edit, and delete monthly production records inline
+- **Summary statistics**: Cumulative oil/gas/water and average daily rate cards
+
 ### Cross Sections
 - **Structural mode**: Wells at true TVDSS with shared depth axis
 - **Stratigraphic mode**: Wells flattened on a datum formation
@@ -99,6 +107,7 @@ SubsurfaceAnalyzer/
 │   ├── formation_tops.py   # Top picking + editing
 │   ├── petrophysics_page.py # Analysis + volumetrics
 │   ├── contour_mapping.py  # All map types + interpolation + shapefile overlays
+│   ├── production_data.py  # Production charts, DCA, multi-well comparison
 │   └── cross_section.py    # Cross section builder
 ├── services/
 │   ├── las_parser.py       # LAS file parser
@@ -107,11 +116,12 @@ SubsurfaceAnalyzer/
 │   ├── volumetrics.py      # OOIP/OGIP + Monte Carlo
 │   ├── mapping.py          # Interpolation + map builders + shapefile overlay
 │   ├── shapefile_parser.py # Shapefile parser (geopandas)
+│   ├── decline_curve.py    # Arps decline curve fitting + EUR
 │   └── export_service.py   # CSV export
 ├── utils/
 │   ├── constants.py        # Mnemonic aliases, curve styles
 │   └── validators.py       # Input validation
-└── tests/                  # 166 tests (pytest)
+└── tests/                  # 191 tests (pytest)
 ```
 
 ## Running Tests
