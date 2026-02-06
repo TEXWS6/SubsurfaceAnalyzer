@@ -17,6 +17,7 @@ def create_navbar():
                     dbc.NavItem(dbc.NavLink("Contour Maps", href="/contour-mapping")),
                     dbc.NavItem(dbc.NavLink("Cross Section", href="/cross-section")),
                     dbc.NavItem(dbc.NavLink("Petrophysics", href="/petrophysics")),
+                    dbc.NavItem(dbc.NavLink("Production", href="/production-data")),
                 ], navbar=True),
                 id="navbar-collapse",
                 navbar=True,

@@ -77,3 +77,43 @@ class TestProductionRepository:
         prod.create(wid, "2020-01", 1000, 5000000, 500, 30)
         prod.delete_by_well(wid)
         assert prod.get_by_well(wid) == []
+
+    def test_update_single_field(self, repos):
+        prod, wid, _ = repos
+        rid = prod.create(wid, "2020-01", 1000, 5000000, 500, 30)
+        prod.update(rid, oil_vol=1200)
+        records = prod.get_by_well(wid)
+        assert records[0]["oil_vol"] == pytest.approx(1200)
+
+    def test_update_multiple_fields(self, repos):
+        prod, wid, _ = repos
+        rid = prod.create(wid, "2020-01", 1000, 5000000, 500, 30)
+        prod.update(rid, oil_vol=1200, gas_vol=6000000, date="2020-02")
+        records = prod.get_by_well(wid)
+        assert records[0]["oil_vol"] == pytest.approx(1200)
+        assert records[0]["gas_vol"] == pytest.approx(6000000)
+        assert records[0]["date"] == "2020-02"
+
+    def test_update_noop(self, repos):
+        prod, wid, _ = repos
+        rid = prod.create(wid, "2020-01", 1000, 5000000, 500, 30)
+        prod.update(rid)  # no kwargs
+        records = prod.get_by_well(wid)
+        assert records[0]["oil_vol"] == pytest.approx(1000)
+
+    def test_delete_single_record(self, repos):
+        prod, wid, _ = repos
+        rid1 = prod.create(wid, "2020-01", 1000, 5000000, 500, 30)
+        rid2 = prod.create(wid, "2020-02", 900, 4000000, 400, 28)
+        prod.delete(rid1)
+        records = prod.get_by_well(wid)
+        assert len(records) == 1
+        assert records[0]["id"] == rid2
+
+    def test_get_by_project(self, repos):
+        prod, wid, pid = repos
+        prod.create(wid, "2020-01", 1000, 5000000, 500, 30)
+        prod.create(wid, "2020-02", 900, 4000000, 400, 28)
+        records = prod.get_by_project(pid)
+        assert len(records) == 2
+        assert records[0]["well_name"] == "Well 1"

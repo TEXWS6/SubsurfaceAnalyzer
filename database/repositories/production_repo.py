@@ -90,3 +90,34 @@ class ProductionRepository:
         conn = db.get_connection()
         conn.execute("DELETE FROM production_data WHERE well_id = ?", (well_id,))
         conn.commit()
+
+    def update(self, record_id: int, **kwargs) -> None:
+        """Update a production record by ID. Pass field=value kwargs."""
+        allowed = {"date", "oil_vol", "gas_vol", "water_vol", "days_produced"}
+        updates = {k: v for k, v in kwargs.items() if k in allowed}
+        if not updates:
+            return
+        set_clause = ", ".join(f"{k} = ?" for k in updates)
+        values = list(updates.values()) + [record_id]
+        conn = db.get_connection()
+        conn.execute(f"UPDATE production_data SET {set_clause} WHERE id = ?", values)
+        conn.commit()
+
+    def delete(self, record_id: int) -> None:
+        """Delete a single production record by ID."""
+        conn = db.get_connection()
+        conn.execute("DELETE FROM production_data WHERE id = ?", (record_id,))
+        conn.commit()
+
+    def get_by_project(self, project_id: int) -> list:
+        """Return all production records for all wells in a project."""
+        conn = db.get_connection()
+        rows = conn.execute(
+            """SELECT p.*, w.name as well_name
+               FROM production_data p
+               JOIN wells w ON p.well_id = w.id
+               WHERE w.project_id = ?
+               ORDER BY w.name, p.date""",
+            (project_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
