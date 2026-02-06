@@ -123,6 +123,33 @@ CREATE TABLE IF NOT EXISTS ooip_results (
     FOREIGN KEY (well_id) REFERENCES wells(id) ON DELETE SET NULL,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS shapefile_layers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    geometry_type TEXT NOT NULL,
+    feature_count INTEGER DEFAULT 0,
+    bounds_json TEXT,
+    crs_wkt TEXT,
+    attribute_columns_json TEXT DEFAULT '[]',
+    line_color TEXT DEFAULT '#000000',
+    line_width REAL DEFAULT 1.5,
+    fill_color TEXT DEFAULT 'rgba(0,0,0,0.1)',
+    fill_opacity REAL DEFAULT 0.3,
+    label_field TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS shapefile_features (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    layer_id INTEGER NOT NULL,
+    geometry_json TEXT NOT NULL,
+    attributes_json TEXT DEFAULT '{}',
+    label TEXT DEFAULT '',
+    FOREIGN KEY (layer_id) REFERENCES shapefile_layers(id) ON DELETE CASCADE
+);
 """
 
 

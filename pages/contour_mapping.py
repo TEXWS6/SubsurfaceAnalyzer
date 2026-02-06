@@ -6,10 +6,11 @@ import dash_bootstrap_components as dbc
 
 from database.repositories import (
     ProjectRepository, WellRepository, TopsRepository, MapConfigRepository,
-    ProductionRepository,
+    ProductionRepository, ShapefileRepository,
 )
 from services.mapping import MappingService
 from services.volumetrics import VolumetricsEngine
+from services.shapefile_parser import ShapefileParser
 
 dash.register_page(__name__, path="/contour-mapping", name="Contour Maps")
 
@@ -18,6 +19,8 @@ well_repo = WellRepository()
 tops_repo = TopsRepository()
 map_repo = MapConfigRepository()
 prod_repo = ProductionRepository()
+shapefile_repo = ShapefileRepository()
+shapefile_parser = ShapefileParser()
 
 layout = dbc.Container([
     dbc.Row([
@@ -176,6 +179,58 @@ layout = dbc.Container([
             dbc.Button("Save Coordinates", id="cm-save-coords-btn", color="info",
                         size="sm", className="mt-1 w-100"),
 
+            html.Hr(),
+
+            # Shapefile layers section
+            html.H6("Shapefile Layers"),
+            dcc.Upload(
+                id="cm-shapefile-upload",
+                children=dbc.Button("Upload Shapefile (.zip)",
+                                    color="outline-secondary", size="sm",
+                                    className="w-100"),
+                multiple=False,
+                accept=".zip",
+            ),
+            dbc.Alert(id="cm-shp-alert", is_open=False, duration=4000,
+                      className="mt-1 small"),
+
+            dbc.Checklist(id="cm-shapefile-layers", options=[], value=[],
+                          className="mt-2 small"),
+
+            # Per-layer style controls
+            html.Div(id="cm-shp-style-div", children=[
+                dbc.Label("Selected Layer", className="mt-1 small"),
+                dbc.Select(id="cm-shp-layer-select", placeholder="Select layer...",
+                           className="mb-1"),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Label("Line Color", className="small"),
+                        dbc.Input(id="cm-shp-line-color", type="color",
+                                  value="#000000", style={"height": "30px"}),
+                    ], width=6),
+                    dbc.Col([
+                        dbc.Label("Fill Color", className="small"),
+                        dbc.Input(id="cm-shp-fill-color", type="color",
+                                  value="#0000FF", style={"height": "30px"}),
+                    ], width=6),
+                ], className="mb-1"),
+                dbc.Label("Line Width", className="small"),
+                dcc.Slider(id="cm-shp-line-width", min=0.5, max=5, step=0.5,
+                           value=1.5,
+                           marks={1: "1", 2: "2", 3: "3", 4: "4", 5: "5"}),
+                dbc.Label("Fill Opacity", className="small"),
+                dcc.Slider(id="cm-shp-fill-opacity", min=0, max=1, step=0.1,
+                           value=0.3,
+                           marks={0: "0", 0.5: "0.5", 1: "1"}),
+                dbc.Label("Label Field", className="small"),
+                dbc.Select(id="cm-shp-label-field", placeholder="Auto"),
+                dbc.Button("Apply Style", id="cm-shp-apply-style-btn",
+                           color="secondary", size="sm", className="mt-1 w-100"),
+                dbc.Button("Delete Layer", id="cm-shp-delete-btn",
+                           color="danger", size="sm", className="mt-1 w-100",
+                           outline=True),
+            ], style={"display": "none"}),
+
         ], md=3, className="border-end bg-light",
            style={"maxHeight": "calc(100vh - 56px)", "overflowY": "auto"}),
 
@@ -290,12 +345,13 @@ def toggle_kriging_manual(autofit):
     State("cm-kriging-nugget", "value"),
     State("cm-idw-power", "value"),
     State("cm-property-select", "value"),
+    State("cm-shapefile-layers", "value"),
     prevent_initial_call=True,
 )
 def generate_map(n_clicks, project_id, map_type, formation_top, formation_base,
                  method, resolution, colorscale,
                  kriging_model, kriging_autofit, kriging_sill, kriging_range,
-                 kriging_nugget, idw_power, property_key):
+                 kriging_nugget, idw_power, property_key, active_shp_layers):
     import plotly.graph_objects as go
     import numpy as np
 
@@ -304,6 +360,21 @@ def generate_map(n_clicks, project_id, map_type, formation_top, formation_base,
 
     pid = int(project_id)
     resolution = int(resolution) if resolution else 100
+
+    def _apply_shp_overlays(fig):
+        """Apply active shapefile layers as overlays on the figure."""
+        if not active_shp_layers:
+            return fig
+        layers_data = []
+        for lid_str in active_shp_layers:
+            layer = shapefile_repo.get_layer_by_id(int(lid_str))
+            if not layer:
+                continue
+            features = shapefile_repo.get_features_by_layer(int(lid_str))
+            layers_data.append({**layer, "features": features})
+        if layers_data:
+            MappingService.add_shapefile_overlay(fig, layers_data)
+        return fig
 
     def _get_wells_with_coords():
         """Get project wells filtered to those with coordinates."""
@@ -353,7 +424,7 @@ def generate_map(n_clicks, project_id, map_type, formation_top, formation_base,
         else:
             fig = MappingService.build_structure_map(
                 valid, formation_top, method, resolution, colorscale)
-        return fig, "", "info", False
+        return _apply_shp_overlays(fig), "", "info", False
 
     # --- Isopach map ---
     elif map_type == "isopach":
@@ -394,7 +465,7 @@ def generate_map(n_clicks, project_id, map_type, formation_top, formation_base,
         else:
             fig = MappingService.build_isopach_map(
                 valid, formation_top, formation_base, method, resolution, colorscale)
-        return fig, "", "info", False
+        return _apply_shp_overlays(fig), "", "info", False
 
     # --- Bubble map ---
     elif map_type == "bubble":
@@ -419,7 +490,7 @@ def generate_map(n_clicks, project_id, map_type, formation_top, formation_base,
 
         fig = MappingService.build_bubble_map(
             wells_data, prop, f"Bubble Map — {prop}", colorscale)
-        return fig, "", "info", False
+        return _apply_shp_overlays(fig), "", "info", False
 
     # --- Posted values ---
     elif map_type == "posted":
@@ -435,7 +506,7 @@ def generate_map(n_clicks, project_id, map_type, formation_top, formation_base,
 
         fig = MappingService.build_posted_values_map(
             wells_data, prop, f"Posted Values — {prop}")
-        return fig, "", "info", False
+        return _apply_shp_overlays(fig), "", "info", False
 
     # --- Pie chart map ---
     elif map_type == "pie":
@@ -455,7 +526,7 @@ def generate_map(n_clicks, project_id, map_type, formation_top, formation_base,
             })
 
         fig = MappingService.build_pie_chart_map(wells_data, "Pie Chart Map")
-        return fig, "", "info", False
+        return _apply_shp_overlays(fig), "", "info", False
 
     # --- Grid property map ---
     elif map_type == "grid":
@@ -474,7 +545,7 @@ def generate_map(n_clicks, project_id, map_type, formation_top, formation_base,
         xi, yi, zi = _interpolate(x, y, z, resolution)
         fig = MappingService.build_grid_property_map(
             xi, yi, zi, x, y, names, f"Grid — {prop}", colorscale)
-        return fig, "", "info", False
+        return _apply_shp_overlays(fig), "", "info", False
 
     return go.Figure(), "Unknown map type", "danger", True
 
@@ -589,3 +660,139 @@ def compute_polygon_area(relayout_data, polygon_mode):
                         area_acres, vertices)
 
     return no_update, no_update, no_update
+
+
+# --- Shapefile layer callbacks ---
+
+@callback(
+    Output("cm-shapefile-layers", "options"),
+    Output("cm-shapefile-layers", "value"),
+    Output("cm-shp-layer-select", "options"),
+    Output("cm-shp-style-div", "style"),
+    Output("cm-shp-alert", "children", allow_duplicate=True),
+    Output("cm-shp-alert", "color", allow_duplicate=True),
+    Output("cm-shp-alert", "is_open", allow_duplicate=True),
+    Input("cm-shapefile-upload", "contents"),
+    Input("cm-shp-delete-btn", "n_clicks"),
+    Input("cm-project-select", "value"),
+    State("cm-shapefile-upload", "filename"),
+    State("cm-shapefile-layers", "value"),
+    State("cm-shp-layer-select", "value"),
+    prevent_initial_call=True,
+)
+def manage_shapefile_layers(upload_contents, delete_clicks, project_id,
+                            upload_filename, checked_layers, selected_layer):
+    import base64
+    trigger = ctx.triggered_id
+
+    if not project_id:
+        return [], [], [], {"display": "none"}, "", "info", False
+
+    pid = int(project_id)
+    alert_msg, alert_color, alert_open = "", "info", False
+
+    # Handle upload
+    if trigger == "cm-shapefile-upload" and upload_contents:
+        try:
+            content_type, content_string = upload_contents.split(",")
+            decoded = base64.b64decode(content_string)
+            parsed = shapefile_parser.parse_from_zip(decoded, upload_filename or "upload.zip")
+            result = shapefile_parser.import_to_project(parsed, pid, shapefile_repo)
+            alert_msg = (f"Imported '{parsed['metadata']['name']}': "
+                         f"{result['feature_count']} {parsed['metadata']['geometry_type']} features")
+            alert_color = "success"
+            alert_open = True
+        except Exception as e:
+            alert_msg = f"Error importing shapefile: {str(e)}"
+            alert_color = "danger"
+            alert_open = True
+
+    # Handle delete
+    if trigger == "cm-shp-delete-btn" and selected_layer:
+        try:
+            shapefile_repo.delete_layer(int(selected_layer))
+            alert_msg = "Layer deleted"
+            alert_color = "warning"
+            alert_open = True
+        except Exception as e:
+            alert_msg = f"Error deleting: {str(e)}"
+            alert_color = "danger"
+            alert_open = True
+
+    # Refresh layer list
+    layers = shapefile_repo.get_layers_by_project(pid)
+    checklist_opts = [{"label": f"{l['name']} ({l['geometry_type']}, {l['feature_count']})",
+                       "value": str(l["id"])} for l in layers]
+    select_opts = [{"label": l["name"], "value": str(l["id"])} for l in layers]
+
+    # Keep checked values that still exist
+    existing_ids = {str(l["id"]) for l in layers}
+    checked = [v for v in (checked_layers or []) if v in existing_ids]
+
+    style_div = {"display": "block"} if layers else {"display": "none"}
+
+    return checklist_opts, checked, select_opts, style_div, alert_msg, alert_color, alert_open
+
+
+@callback(
+    Output("cm-shp-label-field", "options"),
+    Output("cm-shp-line-color", "value"),
+    Output("cm-shp-line-width", "value"),
+    Output("cm-shp-fill-color", "value"),
+    Output("cm-shp-fill-opacity", "value"),
+    Input("cm-shp-layer-select", "value"),
+    prevent_initial_call=True,
+)
+def load_layer_style(layer_id):
+    import json as _json
+    if not layer_id:
+        return [], "#000000", 1.5, "#0000FF", 0.3
+    layer = shapefile_repo.get_layer_by_id(int(layer_id))
+    if not layer:
+        return [], "#000000", 1.5, "#0000FF", 0.3
+
+    attr_cols = []
+    try:
+        attr_cols = _json.loads(layer.get("attribute_columns_json", "[]"))
+    except Exception:
+        pass
+    label_opts = [{"label": c, "value": c} for c in attr_cols]
+
+    # Extract hex from fill_color if it's rgba
+    fill_hex = layer.get("fill_color", "#0000FF")
+    if fill_hex.startswith("rgba"):
+        fill_hex = "#0000FF"
+
+    return (label_opts,
+            layer.get("line_color", "#000000"),
+            layer.get("line_width", 1.5),
+            fill_hex,
+            layer.get("fill_opacity", 0.3))
+
+
+@callback(
+    Output("cm-shp-alert", "children"),
+    Output("cm-shp-alert", "color"),
+    Output("cm-shp-alert", "is_open"),
+    Input("cm-shp-apply-style-btn", "n_clicks"),
+    State("cm-shp-layer-select", "value"),
+    State("cm-shp-line-color", "value"),
+    State("cm-shp-line-width", "value"),
+    State("cm-shp-fill-color", "value"),
+    State("cm-shp-fill-opacity", "value"),
+    State("cm-shp-label-field", "value"),
+    prevent_initial_call=True,
+)
+def apply_layer_style(n_clicks, layer_id, line_color, line_width,
+                      fill_color, fill_opacity, label_field):
+    if not layer_id:
+        return "Select a layer", "warning", True
+    shapefile_repo.update_layer_style(
+        int(layer_id),
+        line_color=line_color or "#000000",
+        line_width=float(line_width or 1.5),
+        fill_color=fill_color or "#000000",
+        fill_opacity=float(fill_opacity or 0.3),
+        label_field=label_field,
+    )
+    return "Style updated", "success", True

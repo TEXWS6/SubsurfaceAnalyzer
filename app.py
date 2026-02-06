@@ -28,6 +28,7 @@ app.layout = html.Div([
     dcc.Store(id="session-well-id", storage_type="session"),
     dcc.Store(id="session-polygon-area", storage_type="session"),
     dcc.Store(id="session-polygon-vertices", storage_type="session"),
+    dcc.Store(id="session-active-layers", storage_type="session"),
 
     # Page container
     dash.page_container,

@@ -5,6 +5,7 @@ lasio>=0.31
 numpy>=1.24.0
 scipy>=1.11.0
 pykrige>=1.7.0
+geopandas>=0.14.0
 pandas>=2.0.0
 waitress>=2.1.0
 pytest>=7.4.0

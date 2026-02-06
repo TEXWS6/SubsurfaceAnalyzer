@@ -102,3 +102,29 @@ class OOIPResult:
     ooip: Optional[float] = None
     ogip: Optional[float] = None
     parameters_json: str = "{}"
+
+
+@dataclass
+class ShapefileLayer:
+    id: int = 0
+    project_id: int = 0
+    name: str = ""
+    geometry_type: str = ""
+    feature_count: int = 0
+    bounds_json: str = ""
+    crs_wkt: str = ""
+    attribute_columns_json: str = "[]"
+    line_color: str = "#000000"
+    line_width: float = 1.5
+    fill_color: str = "rgba(0,0,0,0.1)"
+    fill_opacity: float = 0.3
+    label_field: Optional[str] = None
+
+
+@dataclass
+class ShapefileFeature:
+    id: int = 0
+    layer_id: int = 0
+    geometry_json: str = ""
+    attributes_json: str = "{}"
+    label: str = ""

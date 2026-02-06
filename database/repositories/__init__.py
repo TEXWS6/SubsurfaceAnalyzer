@@ -7,3 +7,4 @@ from database.repositories.petro_repo import PetroParamsRepository
 from database.repositories.production_repo import ProductionRepository
 from database.repositories.completions_repo import CompletionsRepository
 from database.repositories.ooip_repo import OOIPRepository
+from database.repositories.shapefile_repo import ShapefileRepository

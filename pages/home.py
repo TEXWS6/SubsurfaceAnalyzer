@@ -7,10 +7,11 @@ import dash_bootstrap_components as dbc
 
 from database.repositories import (
     ProjectRepository, WellRepository, CurveRepository,
-    ProductionRepository, CompletionsRepository,
+    ProductionRepository, CompletionsRepository, ShapefileRepository,
 )
 from services.las_parser import LASParser
 from services.ihs_parser import IHSParser
+from services.shapefile_parser import ShapefileParser
 
 dash.register_page(__name__, path="/", name="Home")
 
@@ -21,6 +22,8 @@ prod_repo = ProductionRepository()
 comp_repo = CompletionsRepository()
 las_parser = LASParser()
 ihs_parser = IHSParser()
+shapefile_repo = ShapefileRepository()
+shapefile_parser = ShapefileParser()
 
 layout = dbc.Container([
     dbc.Row([
@@ -99,6 +102,28 @@ layout = dbc.Container([
                               className="mt-2"),
                     html.Div(id="ihs-summary", className="mt-2"),
                 ], label="IHS .297/.298 Import"),
+
+                dbc.Tab([
+                    html.H4("Import Shapefile", className="mt-3"),
+                    html.P("Upload a .zip archive containing .shp, .shx, .dbf "
+                           "(and optionally .prj) files.",
+                           className="text-muted small"),
+                    dcc.Upload(
+                        id="shp-upload",
+                        children=dbc.Card(
+                            dbc.CardBody([
+                                html.I(className="bi bi-map fs-1"),
+                                html.P("Drag & drop or click to upload Shapefile .zip"),
+                            ], className="text-center"),
+                            className="border-dashed",
+                        ),
+                        multiple=False,
+                        accept=".zip",
+                    ),
+                    dbc.Alert(id="shp-upload-alert", is_open=False, duration=5000,
+                              className="mt-2"),
+                    html.Div(id="shp-upload-summary", className="mt-2"),
+                ], label="Shapefile Import"),
             ]),
         ], md=6),
         dbc.Col([
@@ -365,3 +390,43 @@ def handle_ihs_import(content_297, content_298, filename_297, filename_298,
             return f"Error parsing .298: {str(e)}", "danger", True, "", trigger or 0
 
     return no_update, no_update, no_update, no_update, trigger or 0
+
+
+@callback(
+    Output("shp-upload-alert", "children"),
+    Output("shp-upload-alert", "color"),
+    Output("shp-upload-alert", "is_open"),
+    Output("shp-upload-summary", "children"),
+    Input("shp-upload", "contents"),
+    State("shp-upload", "filename"),
+    State("project-selector", "value"),
+    prevent_initial_call=True,
+)
+def handle_shapefile_upload(contents, filename, project_id):
+    import base64
+
+    if not project_id:
+        return "Select a project first", "warning", True, ""
+    if not contents:
+        return no_update, no_update, no_update, no_update
+
+    pid = int(project_id)
+    try:
+        content_type, content_string = contents.split(",")
+        decoded = base64.b64decode(content_string)
+        parsed = shapefile_parser.parse_from_zip(decoded, filename or "upload.zip")
+        result = shapefile_parser.import_to_project(parsed, pid, shapefile_repo)
+        meta = parsed["metadata"]
+
+        summary = dbc.Card(dbc.CardBody([
+            html.H6(f"Layer: {meta['name']}"),
+            html.P(f"Type: {meta['geometry_type']} | "
+                   f"Features: {result['feature_count']} | "
+                   f"Columns: {', '.join(meta['attribute_columns'][:5])}",
+                   className="small mb-0"),
+        ]), className="mt-2")
+
+        return (f"Imported '{meta['name']}' with {result['feature_count']} features",
+                "success", True, summary)
+    except Exception as e:
+        return f"Error importing shapefile: {str(e)}", "danger", True, ""

@@ -2,8 +2,10 @@
 
 Supports: cubic/linear/nearest (scipy), Ordinary Kriging (pykrige), IDW.
 Map types: structure, isopach, bubble, posted values, pie chart, grid property.
+Shapefile overlay support for polygons, lines, and points.
 """
 
+import json
 import numpy as np
 from scipy.interpolate import griddata
 import plotly.graph_objects as go
@@ -429,3 +431,156 @@ class MappingService:
             margin=dict(l=60, r=20, t=50, b=60),
         )
         return fig
+
+    # --- Shapefile overlay ---
+
+    @staticmethod
+    def add_shapefile_overlay(fig: go.Figure, layers_data: list) -> go.Figure:
+        """Add shapefile layer traces on top of an existing figure.
+
+        layers_data: list of dicts, each containing:
+            - name, geometry_type, line_color, line_width, fill_color, fill_opacity
+            - features: list of dicts with geometry_json, label, attributes_json
+        """
+        for layer in layers_data:
+            layer_name = layer.get("name", "Layer")
+            line_color = layer.get("line_color", "#000000")
+            line_width = layer.get("line_width", 1.5)
+            fill_color = layer.get("fill_color", "rgba(0,0,0,0.1)")
+            fill_opacity = layer.get("fill_opacity", 0.3)
+            features = layer.get("features", [])
+
+            first_in_group = True
+            for feat in features:
+                geom = feat.get("geometry_json", "")
+                if isinstance(geom, str):
+                    try:
+                        geom = json.loads(geom)
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+
+                label = feat.get("label", "")
+                attrs = feat.get("attributes_json", "{}")
+                if isinstance(attrs, str):
+                    try:
+                        attrs = json.loads(attrs)
+                    except (json.JSONDecodeError, TypeError):
+                        attrs = {}
+
+                hover_parts = [f"<b>{label}</b>"] if label else []
+                for k, v in list(attrs.items())[:5]:
+                    hover_parts.append(f"{k}: {v}")
+                hover_text = "<br>".join(hover_parts) if hover_parts else layer_name
+
+                x_list, y_list = MappingService._geojson_to_xy(geom)
+                if not x_list:
+                    continue
+
+                gt = geom.get("type", "").lower()
+                if "polygon" in gt:
+                    rgba = MappingService._color_with_opacity(
+                        fill_color, fill_opacity)
+                    fig.add_trace(go.Scatter(
+                        x=x_list, y=y_list,
+                        mode="lines",
+                        fill="toself",
+                        fillcolor=rgba,
+                        line=dict(color=line_color, width=line_width),
+                        hovertemplate=hover_text + "<extra></extra>",
+                        legendgroup=layer_name,
+                        showlegend=first_in_group,
+                        name=layer_name,
+                    ))
+                elif "line" in gt:
+                    fig.add_trace(go.Scatter(
+                        x=x_list, y=y_list,
+                        mode="lines",
+                        line=dict(color=line_color, width=line_width),
+                        hovertemplate=hover_text + "<extra></extra>",
+                        legendgroup=layer_name,
+                        showlegend=first_in_group,
+                        name=layer_name,
+                    ))
+                elif "point" in gt:
+                    fig.add_trace(go.Scatter(
+                        x=x_list, y=y_list,
+                        mode="markers+text",
+                        marker=dict(size=8, color=line_color,
+                                    symbol="diamond"),
+                        text=[label] * len(x_list) if label else None,
+                        textposition="top center",
+                        textfont=dict(size=8),
+                        hovertemplate=hover_text + "<extra></extra>",
+                        legendgroup=layer_name,
+                        showlegend=first_in_group,
+                        name=layer_name,
+                    ))
+
+                first_in_group = False
+
+        return fig
+
+    @staticmethod
+    def _geojson_to_xy(geometry: dict) -> tuple:
+        """Convert a GeoJSON geometry dict to Plotly-compatible x, y lists.
+
+        For polygons, inserts None separators between rings.
+        Returns (x_list, y_list).
+        """
+        gtype = geometry.get("type", "")
+        coords = geometry.get("coordinates", [])
+
+        x_list, y_list = [], []
+
+        if gtype == "Point":
+            x_list = [coords[0]]
+            y_list = [coords[1]]
+
+        elif gtype == "MultiPoint":
+            for pt in coords:
+                x_list.append(pt[0])
+                y_list.append(pt[1])
+
+        elif gtype == "LineString":
+            for pt in coords:
+                x_list.append(pt[0])
+                y_list.append(pt[1])
+
+        elif gtype == "MultiLineString":
+            for line in coords:
+                for pt in line:
+                    x_list.append(pt[0])
+                    y_list.append(pt[1])
+                x_list.append(None)
+                y_list.append(None)
+
+        elif gtype == "Polygon":
+            for ring in coords:
+                for pt in ring:
+                    x_list.append(pt[0])
+                    y_list.append(pt[1])
+                x_list.append(None)
+                y_list.append(None)
+
+        elif gtype == "MultiPolygon":
+            for polygon in coords:
+                for ring in polygon:
+                    for pt in ring:
+                        x_list.append(pt[0])
+                        y_list.append(pt[1])
+                    x_list.append(None)
+                    y_list.append(None)
+
+        return x_list, y_list
+
+    @staticmethod
+    def _color_with_opacity(color: str, opacity: float) -> str:
+        """Convert a hex color + opacity to an rgba string."""
+        if color.startswith("rgba"):
+            return color
+        if color.startswith("#") and len(color) >= 7:
+            r = int(color[1:3], 16)
+            g = int(color[3:5], 16)
+            b = int(color[5:7], 16)
+            return f"rgba({r},{g},{b},{opacity})"
+        return f"rgba(0,0,0,{opacity})"
