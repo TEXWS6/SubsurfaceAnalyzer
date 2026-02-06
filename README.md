@@ -7,6 +7,7 @@ A web-based subsurface geological analysis tool built with Dash and Plotly. Impo
 ### Data Import
 - **LAS 2.0/3.0** — drag-and-drop upload with automatic mnemonic normalization and metadata extraction
 - **IHS .297/.298** — fixed-width format import for well headers, completions, and monthly production data
+- **Shapefiles** — .zip upload of .shp/.shx/.dbf/.prj; supports Polygon, LineString, Point, and Multi* geometry types via geopandas
 - UWI-based deduplication on import
 
 ### Well Log Viewer
@@ -38,6 +39,7 @@ A web-based subsurface geological analysis tool built with Dash and Plotly. Impo
 ### Contour Mapping
 - **Map types**: Structure, Isopach, Bubble, Posted Values, Pie Chart, Grid Property
 - **Interpolation**: Cubic, Linear, Nearest (scipy), Ordinary Kriging (pykrige), IDW
+- **Shapefile overlays**: Toggle imported layers on/off, per-layer styling (line color/width, fill color/opacity, label field)
 - Kriging variogram control (spherical/exponential/gaussian, manual or auto-fit sill/range/nugget)
 - Polygon drawing mode for on-map area measurement
 - Well coordinate editor with inline editing
@@ -58,6 +60,7 @@ A web-based subsurface geological analysis tool built with Dash and Plotly. Impo
 | Backend | Python 3.10+, NumPy, SciPy, pandas |
 | Database | SQLite (thread-safe, WAL mode) |
 | Kriging | PyKrige |
+| Shapefiles | GeoPandas, Shapely |
 | LAS Parsing | lasio |
 | Server | Waitress (production) / Flask (dev) |
 
@@ -86,28 +89,29 @@ SubsurfaceAnalyzer/
 ├── database/
 │   ├── connection.py       # Thread-safe SQLite connection manager
 │   ├── schema.py           # Schema definition + migrations
-│   └── repositories/       # CRUD repositories (project, well, curve,
-│                           #   tops, map, petro, production, completions, ooip)
+│   └── repositories/       # CRUD repositories (project, well, curve, tops,
+│                           #   map, petro, production, completions, ooip, shapefile)
 ├── models/
-│   └── domain.py           # Dataclasses (Well, Curve, FormationTop, etc.)
+│   └── domain.py           # Dataclasses (Well, Curve, FormationTop, ShapefileLayer, etc.)
 ├── pages/
-│   ├── home.py             # Project management + LAS/IHS import
+│   ├── home.py             # Project management + LAS/IHS/Shapefile import
 │   ├── well_log_viewer.py  # Multi-track log display
 │   ├── formation_tops.py   # Top picking + editing
 │   ├── petrophysics_page.py # Analysis + volumetrics
-│   ├── contour_mapping.py  # All map types + interpolation
+│   ├── contour_mapping.py  # All map types + interpolation + shapefile overlays
 │   └── cross_section.py    # Cross section builder
 ├── services/
 │   ├── las_parser.py       # LAS file parser
 │   ├── ihs_parser.py       # IHS .297/.298 parser
 │   ├── petrophysics.py     # Vshale, porosity, Sw, net pay
 │   ├── volumetrics.py      # OOIP/OGIP + Monte Carlo
-│   ├── mapping.py          # Interpolation + map builders
+│   ├── mapping.py          # Interpolation + map builders + shapefile overlay
+│   ├── shapefile_parser.py # Shapefile parser (geopandas)
 │   └── export_service.py   # CSV export
 ├── utils/
 │   ├── constants.py        # Mnemonic aliases, curve styles
 │   └── validators.py       # Input validation
-└── tests/                  # 128 tests (pytest)
+└── tests/                  # 166 tests (pytest)
 ```
 
 ## Running Tests
