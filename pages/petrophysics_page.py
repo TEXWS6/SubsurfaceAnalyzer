@@ -35,6 +35,9 @@ layout = dbc.Container([
             dbc.Label("Well", className="mt-2"),
             dbc.Select(id="pp-well-select", placeholder="Select well..."),
 
+            dbc.Label("Zone of Interest", className="mt-2"),
+            dbc.Select(id="pp-zone-select", placeholder="Select formation zone..."),
+
             html.Hr(),
 
             # Accordion for parameter groups
@@ -136,7 +139,7 @@ layout = dbc.Container([
                                 value="oil",
                                 inline=True,
                             ),
-                        ], md=3),
+                        ], md=4),
                         dbc.Col([
                             dbc.Label("Method"),
                             dbc.RadioItems(
@@ -148,17 +151,12 @@ layout = dbc.Container([
                                 value="deterministic",
                                 inline=True,
                             ),
-                        ], md=3),
-                        dbc.Col([
-                            dbc.Label("Formation Zone"),
-                            dbc.Select(id="pp-vol-formation",
-                                       placeholder="Select zone..."),
-                        ], md=3),
+                        ], md=4),
                         dbc.Col([
                             dbc.Label("Area (acres)"),
                             dbc.Input(id="pp-vol-area", type="number",
                                       value=40, step=1),
-                        ], md=3),
+                        ], md=4),
                     ]),
                     dbc.Row([
                         dbc.Col([
@@ -290,6 +288,34 @@ def load_wells(project_id, session_wid):
 
 
 @callback(
+    Output("pp-zone-select", "options"),
+    Input("pp-project-select", "value"),
+    Input("pp-well-select", "value"),
+)
+def load_zone_options(project_id, well_id):
+    if not project_id:
+        return []
+    formations = tops_repo.get_formations_in_project(int(project_id))
+    # If a well is selected, annotate with that well's depth range
+    well_tops = {}
+    if well_id:
+        for t in tops_repo.get_by_well(int(well_id)):
+            if t["formation"] not in well_tops:
+                well_tops[t["formation"]] = t
+    opts = []
+    for fm in formations:
+        label = fm
+        wt = well_tops.get(fm)
+        if wt:
+            if wt.get("md_base"):
+                label += f" ({wt['md_top']:.0f}-{wt['md_base']:.0f})"
+            else:
+                label += f" ({wt['md_top']:.0f})"
+        opts.append({"label": label, "value": fm})
+    return opts
+
+
+@callback(
     Output("pp-gr-curve", "options"),
     Output("pp-gr-curve", "value"),
     Output("pp-rhob-curve", "options"),
@@ -351,12 +377,13 @@ def populate_curves(well_id):
     State("pp-phi-cutoff", "value"),
     State("pp-sw-cutoff", "value"),
     State("pp-vsh-cutoff", "value"),
+    State("pp-zone-select", "value"),
     prevent_initial_call=True,
 )
 def run_calculation(n_clicks, well_id, gr_mnem, rhob_mnem, nphi_mnem, rt_mnem,
                     gr_clean, gr_shale, vsh_method, rho_matrix, rho_fluid,
                     nphi_matrix, rw, archie_a, archie_m, archie_n,
-                    phi_cutoff, sw_cutoff, vsh_cutoff):
+                    phi_cutoff, sw_cutoff, vsh_cutoff, zone_formation):
     empty_fig = LogPlotBuilder.build([], title="No results")
 
     if not well_id:
@@ -466,7 +493,18 @@ def run_calculation(n_clicks, well_id, gr_mnem, rhob_mnem, nphi_mnem, rt_mnem,
     # Remove empty tracks
     tracks = [t for t in tracks if t["curves"]]
 
-    fig = LogPlotBuilder.build(tracks, title=f"{well_name} — Petrophysics Results")
+    # Look up zone tops for display on plot
+    zone_tops = None
+    if zone_formation and well_id:
+        for t in tops_repo.get_by_well(wid):
+            if t["formation"] == zone_formation:
+                zone_tops = [{"formation": t["formation"],
+                              "md_top": t["md_top"],
+                              "md_base": t.get("md_base")}]
+                break
+
+    fig = LogPlotBuilder.build(tracks, tops=zone_tops,
+                               title=f"{well_name} — Petrophysics Results")
 
     # Summary
     summary = results["summary"]
@@ -623,28 +661,6 @@ def load_params(n_clicks, well_id):
 
 # --- Volumetrics callbacks ---
 
-@callback(
-    Output("pp-vol-formation", "options"),
-    Input("pp-well-select", "value"),
-)
-def load_vol_formations(well_id):
-    if not well_id:
-        return []
-    tops = tops_repo.get_by_well(int(well_id))
-    seen = set()
-    opts = []
-    for t in tops:
-        fm = t["formation"]
-        if fm not in seen:
-            seen.add(fm)
-            label = fm
-            if t.get("md_base"):
-                label += f" ({t['md_top']:.0f}-{t['md_base']:.0f})"
-            else:
-                label += f" ({t['md_top']:.0f})"
-            opts.append({"label": label, "value": fm})
-    return opts
-
 
 @callback(
     Output("pp-vol-mc-div", "style"),
@@ -665,7 +681,7 @@ def toggle_mc_controls(method):
     State("pp-project-select", "value"),
     State("pp-vol-fluid", "value"),
     State("pp-vol-method", "value"),
-    State("pp-vol-formation", "value"),
+    State("pp-zone-select", "value"),
     State("pp-vol-area", "value"),
     State("pp-vol-bo", "value"),
     State("pp-vol-bg", "value"),
