@@ -203,7 +203,7 @@ def update_log_plot(n_clicks, well_id, t1_curves, t2_curves, t3_curves, show_top
     if show_tops and "show" in (show_tops or []):
         raw_tops = tops_repo.get_by_well(wid)
         for t in raw_tops:
-            tops.append({"formation": t["formation"], "md_top": t["md_top"]})
+            tops.append({"formation": t["formation"], "md_top": t["md_top"], "md_base": t.get("md_base")})
 
     return LogPlotBuilder.build(tracks, tops=tops, title=well_name,
                                 height=max(800, 900))

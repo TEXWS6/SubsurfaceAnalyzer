@@ -267,7 +267,7 @@ def update_log_plot(well_id, trigger, pick_mode):
 
     # Load tops
     raw_tops = tops_repo.get_by_well(wid)
-    tops = [{"formation": t["formation"], "md_top": t["md_top"]} for t in raw_tops]
+    tops = [{"formation": t["formation"], "md_top": t["md_top"], "md_base": t.get("md_base")} for t in raw_tops]
 
     title = f"{well_name} — {'PICK MODE' if pick_mode else 'View Mode'}"
     fig = LogPlotBuilder.build(tracks, tops=tops, title=title)

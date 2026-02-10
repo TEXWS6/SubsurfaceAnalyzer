@@ -117,7 +117,9 @@ class LogPlotBuilder:
         if tops:
             for i, top in enumerate(tops):
                 color = top.get("color", TOP_COLORS[i % len(TOP_COLORS)])
+                md_base = top.get("md_base")
                 for col in range(1, n_tracks + 1):
+                    # Dashed line at md_top
                     fig.add_hline(
                         y=top["md_top"],
                         line_dash="dash",
@@ -129,6 +131,28 @@ class LogPlotBuilder:
                         annotation_font_color=color,
                         row=1, col=col,
                     )
+                    # If md_base exists, add base line and shaded interval
+                    if md_base is not None:
+                        fig.add_hline(
+                            y=md_base,
+                            line_dash="dash",
+                            line_color=color,
+                            line_width=1.5,
+                            row=1, col=col,
+                        )
+                        # Shaded rectangle between top and base
+                        xref = "x" if col == 1 else f"x{col}"
+                        yref = "y"  # shared y-axis
+                        fig.add_shape(
+                            type="rect",
+                            xref=f"{xref} domain", yref=yref,
+                            x0=0, x1=1,
+                            y0=top["md_top"], y1=md_base,
+                            fillcolor=color,
+                            opacity=0.08,
+                            line_width=0,
+                            row=1, col=col,
+                        )
 
         # Global layout
         fig.update_layout(
