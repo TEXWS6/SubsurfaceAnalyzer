@@ -151,9 +151,7 @@ layout = dbc.Container([
         ], md=6),
     ]),
 
-    # Hidden stores
-    dcc.Store(id="session-project-id", storage_type="session"),
-    dcc.Store(id="session-well-id", storage_type="session"),
+    # Hidden stores (session-project-id & session-well-id live in app.py root layout)
     dcc.Store(id="upload-trigger", data=0),
 ], fluid=True)
 
