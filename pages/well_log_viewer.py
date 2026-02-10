@@ -96,7 +96,7 @@ def load_projects(_, session_pid):
     Output("lv-well-select", "options"),
     Output("lv-well-select", "value"),
     Input("lv-project-select", "value"),
-    State("session-well-id", "data"),
+    Input("session-well-id", "data"),
 )
 def load_wells(project_id, session_wid):
     if not project_id:
