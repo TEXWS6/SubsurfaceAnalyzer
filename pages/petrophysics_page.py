@@ -113,7 +113,7 @@ layout = dbc.Container([
         # Main area: plot + summary
         dbc.Col([
             dcc.Loading(
-                dcc.Graph(id="pp-result-plot", style={"height": "calc(100vh - 200px)"}),
+                dcc.Graph(id="pp-result-plot", style={"height": "calc(100vh - 350px)", "minHeight": "500px"}),
                 type="circle",
             ),
 
@@ -251,7 +251,7 @@ layout = dbc.Container([
                               style={"display": "none"}),
                 ]),
             ], className="mt-2"),
-        ], md=9),
+        ], md=9, style={"maxHeight": "calc(100vh - 56px)", "overflowY": "auto"}),
     ]),
 
     # Store computed results
